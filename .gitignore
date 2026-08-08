@@ -50,3 +50,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+*.db
+*.sqlite3
+conceptmri.db

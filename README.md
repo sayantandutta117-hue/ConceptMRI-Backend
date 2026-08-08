@@ -8,11 +8,11 @@ Production-ready FastAPI backend for the ConceptMRI AI-powered conceptual learni
 | --------- | ----------- | ------ |
 | 0 | Project foundation | ✅ Complete |
 | 1 | Database & domain models | ✅ Complete |
-| 2 | Core infrastructure | ⏳ |
-| 3 | Authentication & users | ⏳ |
-| 4 | Topics & rubrics | ⏳ |
-| 5 | Assessment & AI pipeline | ⏳ |
-| 6 | Dashboard & analytics | ⏳ |
+| 2 | Core infrastructure | ✅ Complete |
+| 3 | Authentication & users | ✅ Complete |
+| 4 | Topics & rubrics | ✅ Complete |
+| 5 | Assessment & AI pipeline | ✅ Complete |
+| 6 | Dashboard & analytics | ✅ Complete |
 
 ## Quick Start
 
@@ -29,8 +29,8 @@ cp .env.example .env   # edit values as needed
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- API docs: http://localhost:8000/docs
-- Health check: http://localhost:8000/api/v1/health
+- API docs: http://localhost:8001/docs
+- Health check: http://localhost:8001/api/v1/health
 
 ## Run Tests
 

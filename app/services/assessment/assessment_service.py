@@ -1,5 +1,4 @@
 import uuid
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +23,13 @@ class AssessmentService:
         )
         return await self.assessment_repo.create(assessment)
 
+    async def get_all_assessments(self) -> list[Assessment]:
+        return await self.assessment_repo.get_all()
+
     async def get_assessment_by_id(self, assessment_id: str) -> Assessment | None:
         return await self.assessment_repo.get_by_id(assessment_id)
 
-    async def get_assessments_by_student_id(self, student_id: str) -> list[Assessment]:
+    async def get_assessments_by_student_id(
+        self, student_id: str
+    ) -> list[Assessment]:
         return await self.assessment_repo.get_by_student_id(student_id)

@@ -10,6 +10,11 @@ class AssessmentRepository(BaseRepository):
     def __init__(self, session) -> None:
         super().__init__(session, Assessment)
 
+    async def get_all(self) -> list[Assessment]:
+        stmt = select(Assessment)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_by_student_id(self, student_id: str | uuid.UUID) -> list[Assessment]:
         student_id = self._coerce_uuid(student_id)
         stmt = select(Assessment).where(Assessment.student_id == student_id)

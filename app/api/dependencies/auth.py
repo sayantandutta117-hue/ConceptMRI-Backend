@@ -84,3 +84,34 @@ async def get_current_admin(
             detail="Admin access required",
         )
     return current_user
+
+
+async def get_current_user_optional(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer(auto_error=False))],
+    session=Depends(get_session),
+) -> dict[str, Any] | None:
+    if credentials is None or not credentials.credentials:
+        return None
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError:
+        return None
+
+    if payload.get("type") != "access":
+        return None
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        return None
+
+    user = await UserRepository(session).get_by_id(user_id)
+    if user is None or user.status.value != "ACTIVE":
+        return None
+
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "role": user.role.value,
+    }

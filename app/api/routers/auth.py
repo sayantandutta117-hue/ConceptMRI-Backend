@@ -11,8 +11,9 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.db.models.models import User
+from app.db.models.models import Student, User
 from app.db.models.enums import UserRole, UserStatus
+from app.db.repositories.student_repository import StudentRepository
 from app.db.repositories.user_repository import UserRepository
 from app.schemas.auth import LoginRequest, RefreshTokenRequest, UserRegisterRequest
 
@@ -50,6 +51,12 @@ async def register(
     )
     await repo.create(user)
     await session.flush()
+
+    if user.role == UserRole.STUDENT:
+        student_repo = StudentRepository(session)
+        student = Student(user_id=user.id)
+        await student_repo.create(student)
+        await session.flush()
 
     return {
         "success": True,

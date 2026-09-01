@@ -3,8 +3,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.auth import get_session
+from app.api.dependencies.auth import get_current_user_optional, get_session
 from app.core.exceptions import ValidationError
+from app.db.models.enums import UserRole
 from app.db.repositories.student_repository import StudentRepository
 from app.schemas.assessment import AssessmentCreateRequest
 from app.services.assessment.assessment_service import AssessmentService
@@ -46,37 +47,23 @@ def _assessment_response(assessment: Any) -> dict:
 async def create_assessment(
     payload: AssessmentCreateRequest,
     session: AsyncSession = Depends(get_session),
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ) -> dict:
 
     student_repo = StudentRepository(session)
 
-    # The frontend currently sends the logged-in USER id as student_id.
-    # The assessments table requires the actual STUDENT table id.
-    student_id = payload.student_id
-
-    if student_id is not None:
-        student = await student_repo.get_by_id(student_id)
-
-        if student is None:
-            raise ValidationError(
-                message="Invalid student_id.",
-                details=[
-                    {
-                        "field": "student_id",
-                        "message": (
-                            "The provided student_id does not exist "
-                            "in the students table."
-                        ),
-                    }
-                ],
+    print("DEBUG current_user:", current_user)
+    print("DEBUG payload student_id:", payload.student_id)
+    if current_user is not None:
+        if current_user["role"] != UserRole.STUDENT.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Student access required",
             )
 
-        student_id = str(student.id)
+        student = await student_repo.get_by_user_id(current_user["id"])
 
-    else:
-        all_students = await student_repo.get_all()
-
-        if not all_students:
+        if student is None:
             raise ValidationError(
                 message="Student profile not found.",
                 details=[
@@ -89,7 +76,47 @@ async def create_assessment(
                 ],
             )
 
-        student_id = str(all_students[0].id)
+        student_id = str(student.id)
+
+    else:
+        student_id = payload.student_id
+
+        if student_id is not None:
+            student = await student_repo.get_by_id(student_id)
+
+            if student is None:
+                raise ValidationError(
+                    message="Invalid student_id.",
+                    details=[
+                        {
+                            "field": "student_id",
+                            "message": (
+                                "The provided student_id does not exist "
+                                "in the students table."
+                            ),
+                        }
+                    ],
+                )
+
+            student_id = str(student.id)
+
+        else:
+            all_students = await student_repo.get_all()
+
+            if not all_students:
+                raise ValidationError(
+                    message="Student profile not found.",
+                    details=[
+                        {
+                            "field": "student_id",
+                            "message": (
+                                "No student profile exists for this user."
+                            ),
+                        }
+                    ],
+                )
+
+            student_id = str(all_students[0].id)
 
     service = AssessmentService(session)
 

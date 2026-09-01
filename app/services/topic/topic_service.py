@@ -8,6 +8,25 @@ from app.db.models.models import Topic
 from app.db.repositories.topic_repository import TopicRepository
 
 
+DIFFICULTY_ALIASES = {
+    "beginner": Difficulty.EASY,
+    "intermediate": Difficulty.MEDIUM,
+    "advanced": Difficulty.HARD,
+    "easy": Difficulty.EASY,
+    "medium": Difficulty.MEDIUM,
+    "hard": Difficulty.HARD,
+}
+
+
+def _normalize_difficulty(value: str) -> Difficulty:
+    if isinstance(value, Difficulty):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in DIFFICULTY_ALIASES:
+        return DIFFICULTY_ALIASES[normalized]
+    return Difficulty[normalized.upper()]
+
+
 class TopicService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -42,7 +61,7 @@ class TopicService:
         topic = Topic(
             subject=payload["subject"],
             topic_name=payload["topic_name"],
-            difficulty=payload.get("difficulty", Difficulty.EASY),
+            difficulty=_normalize_difficulty(payload.get("difficulty", Difficulty.EASY)),
             description=payload.get("description"),
             learning_objectives=payload.get("learning_objectives"),
             prerequisites=payload.get("prerequisites"),
@@ -56,6 +75,8 @@ class TopicService:
             return None
         for key, value in payload.items():
             if value is not None and hasattr(topic, key):
+                if key == "difficulty":
+                    value = _normalize_difficulty(value)
                 setattr(topic, key, value)
         return await self.topic_repo.update(topic)
 

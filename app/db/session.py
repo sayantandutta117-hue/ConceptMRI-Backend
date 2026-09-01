@@ -7,8 +7,19 @@ from app.core.config import settings
 
 print("DATABASE DRIVER:", settings.database_url.split("://")[0])
 
+
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
 engine = create_async_engine(
-    settings.database_url,
+    _normalize_database_url(settings.database_url),
     echo=settings.environment == "development",
     future=True,
 )

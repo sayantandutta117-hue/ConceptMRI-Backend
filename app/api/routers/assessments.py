@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user_optional, get_session
 from app.core.exceptions import ValidationError
-from app.db.models.enums import UserRole
+from app.db.models.enums import AssessmentStatus, UserRole
+from app.db.repositories.assessment_repository import AssessmentRepository
+from app.db.repositories.mri_report_repository import MRIReportRepository
 from app.db.repositories.student_repository import StudentRepository
 from app.schemas.assessment import AssessmentCreateRequest
 from app.services.assessment.assessment_service import AssessmentService
@@ -14,8 +16,8 @@ from app.services.assessment.assessment_service import AssessmentService
 router = APIRouter(prefix="/assessments", tags=["Assessments"])
 
 
-def _assessment_response(assessment: Any) -> dict:
-    return {
+def _assessment_response(assessment: Any, report: Any = None) -> dict:
+    data = {
         "id": str(assessment.id),
         "student_id": str(assessment.student_id),
         "topic_id": str(assessment.topic_id),
@@ -41,6 +43,27 @@ def _assessment_response(assessment: Any) -> dict:
             else None
         ),
     }
+    if report is not None:
+        data["report"] = {
+            "id": str(report.id),
+            "evaluation_id": str(report.evaluation_id),
+            "overall_score": report.overall_score,
+            "mastery_level": (
+                report.mastery_level.value
+                if hasattr(report.mastery_level, "value")
+                else report.mastery_level
+            ),
+            "teacher_summary": report.teacher_summary,
+            "student_summary": report.student_summary,
+            "strengths": report.strengths,
+            "weaknesses": report.weaknesses,
+            "misconceptions": report.misconceptions,
+            "recommendations": report.recommendations,
+            "created_at": (
+                report.created_at.isoformat() if report.created_at else None
+            ),
+        }
+    return data
 
 
 @router.post("", response_model=dict)
@@ -128,10 +151,17 @@ async def create_assessment(
 
     await session.flush()
 
+    assessment = await service.evaluate_assessment(assessment.id)
+
+    report = None
+    if assessment.status == AssessmentStatus.COMPLETED:
+        report_repo = MRIReportRepository(session)
+        report = await report_repo.get_by_assessment_id(str(assessment.id))
+
     return {
         "success": True,
         "message": "Assessment created successfully.",
-        "data": _assessment_response(assessment),
+        "data": _assessment_response(assessment, report=report),
     }
 
 
@@ -167,9 +197,14 @@ async def get_assessment(
             detail="Assessment not found",
         )
 
+    report = None
+    if assessment.status == AssessmentStatus.COMPLETED:
+        report_repo = MRIReportRepository(session)
+        report = await report_repo.get_by_assessment_id(assessment_id)
+
     return {
         "success": True,
-        "data": _assessment_response(assessment),
+        "data": _assessment_response(assessment, report=report),
     }
 
 

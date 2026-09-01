@@ -28,3 +28,15 @@ class MRIReportRepository(BaseRepository):
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_by_assessment_id(
+        self, assessment_id: str | uuid.UUID
+    ) -> MRIReport | None:
+        assessment_id = self._coerce_uuid(assessment_id)
+        stmt = (
+            select(MRIReport)
+            .join(MRIReport.evaluation)
+            .where(Evaluation.assessment_id == assessment_id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()

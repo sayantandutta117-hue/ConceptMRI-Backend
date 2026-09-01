@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
@@ -28,7 +29,7 @@ async def test_create_assessment(client: AsyncClient, db_session) -> None:
     payload = {
         "student_id": str(student.id),
         "topic_id": str(topic.id),
-        "answer": "A" * 20,
+        "answer": "A" * 100,
     }
     response = await client.post("/api/v1/assessments", json=payload)
     assert response.status_code == 200
@@ -36,7 +37,10 @@ async def test_create_assessment(client: AsyncClient, db_session) -> None:
     assert body["success"] is True
     assert body["data"]["student_id"] == str(student.id)
     assert body["data"]["topic_id"] == str(topic.id)
-    assert body["data"]["status"] == "PENDING_EVALUATION"
+    assert body["data"]["status"] == "COMPLETED"
+    assert body["data"]["completed_at"] is not None
+    assert body["data"]["report"]["overall_score"] == 85
+    assert body["data"]["report"]["mastery_level"] == "PROFICIENT"
 
 
 @pytest.mark.asyncio
@@ -75,7 +79,7 @@ async def test_create_assessment_authenticated_student_uses_student_id(
     payload = {
         "student_id": str(user.id),
         "topic_id": str(topic.id),
-        "answer": "A" * 20,
+        "answer": "A" * 100,
     }
     response = await client.post(
         "/api/v1/assessments",
@@ -87,7 +91,8 @@ async def test_create_assessment_authenticated_student_uses_student_id(
     assert body["success"] is True
     assert body["data"]["student_id"] == str(student.id)
     assert body["data"]["topic_id"] == str(topic.id)
-    assert body["data"]["status"] == "PENDING_EVALUATION"
+    assert body["data"]["status"] == "COMPLETED"
+    assert body["data"]["completed_at"] is not None
 
 
 @pytest.mark.asyncio
@@ -145,6 +150,36 @@ async def test_create_assessment_authenticated_non_student_forbidden(
 
 
 @pytest.mark.asyncio
+async def test_create_assessment_evaluation_failure_sets_failed(
+    client: AsyncClient, db_session
+) -> None:
+    user = User(email="fail@test.com", password_hash="hash", name="Fail", role="STUDENT", status="ACTIVE")
+    student = Student(user=user, user_id=user.id)
+    topic = Topic(subject="Math", topic_name="Algebra", difficulty="EASY", is_archived=False)
+    db_session.add(user)
+    db_session.add(student)
+    db_session.add(topic)
+    await db_session.flush()
+
+    with patch(
+        "app.services.evaluation.evaluation_service.EvaluationService.create_evaluation",
+        side_effect=RuntimeError("LLM error"),
+    ):
+        payload = {
+            "student_id": str(student.id),
+            "topic_id": str(topic.id),
+            "answer": "A" * 20,
+        }
+        response = await client.post("/api/v1/assessments", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["status"] == "FAILED"
+    assert body["data"]["completed_at"] is not None
+
+
+@pytest.mark.asyncio
 async def test_get_assessment_by_id(client: AsyncClient, db_session) -> None:
     user = User(email="student3@test.com", password_hash="hash", name="Test Student 3", role="STUDENT", status="ACTIVE")
     student = Student(user=user, user_id=user.id)
@@ -163,6 +198,36 @@ async def test_get_assessment_by_id(client: AsyncClient, db_session) -> None:
     body = response.json()
     assert body["success"] is True
     assert body["data"]["id"] == str(assessment.id)
+    assert "report" not in body["data"]
+
+
+@pytest.mark.asyncio
+async def test_get_completed_assessment_includes_report(client: AsyncClient, db_session) -> None:
+    user = User(email="student-report@test.com", password_hash="hash", name="Report Student", role="STUDENT", status="ACTIVE")
+    student = Student(user=user, user_id=user.id)
+    topic = Topic(subject="Math", topic_name="Algebra", difficulty="EASY", is_archived=False)
+    db_session.add(user)
+    db_session.add(student)
+    db_session.add(topic)
+    await db_session.flush()
+
+    payload = {
+        "student_id": str(student.id),
+        "topic_id": str(topic.id),
+        "answer": "A" * 100,
+    }
+    response = await client.post("/api/v1/assessments", json=payload)
+    assert response.status_code == 200
+    assessment_id = response.json()["data"]["id"]
+
+    response = await client.get(f"/api/v1/assessments/{assessment_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["status"] == "COMPLETED"
+    assert "report" in body["data"]
+    assert body["data"]["report"]["overall_score"] == 85
+    assert body["data"]["report"]["mastery_level"] == "PROFICIENT"
 
 
 @pytest.mark.asyncio

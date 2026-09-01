@@ -33,11 +33,15 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin_list,
+        allow_origins=[
+            "http://localhost:3000",
+            "https://your-frontend-domain.onrender.com",
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
     app.add_middleware(RequestContextMiddleware)
 
     register_exception_handlers(app)
@@ -45,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix=settings.api_v1_prefix)
     app.include_router(auth_router, prefix=settings.api_v1_prefix)
     app.include_router(users_router, prefix=settings.api_v1_prefix)
+
     from app.api.routers.topics import router as topics_router
     from app.api.routers.rubrics import router as rubrics_router
     from app.api.routers.assessments import router as assessments_router
@@ -52,6 +57,7 @@ def create_app() -> FastAPI:
     from app.api.routers.reports import router as reports_router
     from app.api.routers.dashboard import router as dashboard_router
     from app.api.routers.teacher import router as teacher_router
+
     app.include_router(topics_router, prefix=settings.api_v1_prefix)
     app.include_router(rubrics_router, prefix=settings.api_v1_prefix)
     app.include_router(assessments_router, prefix=settings.api_v1_prefix)

@@ -51,12 +51,14 @@ def create_app() -> FastAPI:
     from app.api.routers.evaluations import router as evaluations_router
     from app.api.routers.reports import router as reports_router
     from app.api.routers.dashboard import router as dashboard_router
+    from app.api.routers.teacher import router as teacher_router
     app.include_router(topics_router, prefix=settings.api_v1_prefix)
     app.include_router(rubrics_router, prefix=settings.api_v1_prefix)
     app.include_router(assessments_router, prefix=settings.api_v1_prefix)
     app.include_router(evaluations_router, prefix=settings.api_v1_prefix)
     app.include_router(reports_router, prefix=settings.api_v1_prefix)
     app.include_router(dashboard_router, prefix=settings.api_v1_prefix)
+    app.include_router(teacher_router, prefix=settings.api_v1_prefix)
 
     return app
 

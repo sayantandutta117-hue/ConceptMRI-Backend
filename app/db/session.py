@@ -5,6 +5,8 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
+print("DATABASE DRIVER:", settings.database_url.split("://")[0])
+
 engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
